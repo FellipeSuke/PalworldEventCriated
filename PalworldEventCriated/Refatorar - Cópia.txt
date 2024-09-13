@@ -1,0 +1,203 @@
+
+private async void BtnConnect_Click(object sender, EventArgs e)
+{
+    if (!isConnected)
+    {
+        await ConnectToServer();
+    }
+    else
+    {
+        DisconnectFromServer();
+    }
+}
+
+private async Task ConnectToServer()
+{
+    InitializeConnectionData();
+
+    LogsTxt($"Conectando ao servidor {txtServer.Text} na porta {txtPort.Text}");
+    
+    if (await TryMakeApiRequest())
+    {
+        LogsTxt("Conectado!");
+        btnConnect.Text = "Desconectar";
+        btnNotifyEvent.Enabled = true;
+
+        await StartMonitoringPlayers();
+    }
+    else
+    {
+        LogsTxt("Não foi possível conectar");
+        ResetConnectionState();
+    }
+}
+
+private void DisconnectFromServer()
+{
+    isConnected = false;
+    btnConnect.Text = "Conectar";
+    btnNotifyEvent.Enabled = false;
+    LogsTxt("Desconectado!");
+    CleanTempFiles();
+}
+
+private void InitializeConnectionData()
+{
+    string server = txtServer.Text;
+    string port = txtPort.Text;
+    authPassword = txtPassword.Text;
+    apiUrl = $"http://{server}:{port}/v1/api/players";
+
+    baseDir = AppDomain.CurrentDomain.BaseDirectory;
+    logsDir = Path.Combine(baseDir, @"Dados\logs");
+    playersCsvFile = Path.Combine(baseDir, @"Dados\players_data.csv");
+    responseFile = Path.Combine(baseDir, @"Dados\response.json");
+    curlStatusFile = Path.Combine(baseDir, "Dados", "curl_status.txt");
+    curlOutputFile = Path.Combine(baseDir, "Dados", "curl_output.txt");
+
+    CleanTempFiles();
+}
+
+private async Task<bool> TryMakeApiRequest()
+{
+    return await MakeApiRequest(apiUrl, authUsername, authPassword, responseFile, curlStatusFile, curlOutputFile);
+}
+
+private async Task StartMonitoringPlayers()
+{
+    string directoryPath = Path.Combine(baseDir, "Dados", "Guildas");
+
+    await Task.Run(async () =>
+    {
+        while (!isConnected)
+        {
+            isConnected = true;
+
+            if (!ProcessJsonAndUpdateCsv(playersCsvFile, responseFile))
+            {
+                LogsTxt("Player sem ID");
+                Thread.Sleep(10000);
+            }
+
+            await Task.Delay(1000);
+        }
+    });
+}
+
+private void ResetConnectionState()
+{
+    isRunning = false;
+    btnConnect.Text = "Conectar";
+    btnNotifyEvent.Enabled = false;
+}
+
+private async void BtnNotifyEvent_Click(object sender, EventArgs e)
+{
+    if (!isRunning)
+    {
+        StartEvent();
+    }
+    else
+    {
+        StopEvent();
+    }
+}
+
+private void StartEvent()
+{
+    isRunning = true;
+    btnNotifyEvent.Text = "Parar Evento";
+    LogsTxt("Evento Iniciado!");
+
+    string directoryPath = Path.Combine(baseDir, "Dados", "Guildas");
+    Task.Run(() => MonitorEvent(directoryPath));
+}
+
+private void StopEvent()
+{
+    isRunning = false;
+    btnNotifyEvent.Text = "Iniciar Evento";
+    LogsTxt("Evento Parado!");
+    CleanTempFiles();
+}
+
+private async Task MonitorEvent(string directoryPath)
+{
+    while (isRunning)
+    {
+        CheckCoordinatesInTextFiles(playersCsvFile, directoryPath);
+        await Task.Delay(1000); // Intervalo de 1 segundo
+    }
+}
+
+private void Form1_Load(object sender, EventArgs e)
+{
+    InitializeDirectoriesAndFiles();
+}
+
+// Refatorações dos métodos auxiliares de verificação de coordenadas
+public void CheckCoordinatesInTextFiles(string playersCsvFile, string directoryPath)
+{
+    try
+    {
+        var players = ReadPlayersFromCsv(playersCsvFile);
+        var textFiles = Directory.GetFiles(directoryPath, "*.txt");
+
+        foreach (var file in textFiles)
+        {
+            ProcessFileCoordinates(file, players);
+        }
+    }
+    catch (Exception ex)
+    {
+        LogsTxt($"Erro ao verificar coordenadas: {ex.Message}");
+    }
+}
+
+private void ProcessFileCoordinates(string file, List<Player> players)
+{
+    var lines = File.ReadAllLines(file);
+    if (lines.Length < 1) return;
+
+    var treasureData = ParseTreasureData(lines[0]);
+    if (treasureData == null) return;
+
+    var ignoredPlayers = ParseIgnoredPlayers(lines);
+
+    foreach (var player in players)
+    {
+        if (ignoredPlayers.Contains(player.Name)) continue;
+
+        string playerKey = $"{player.AccountName}_{treasureData.FileName}";
+        string currentStatus = GetProximityStatus(player, treasureData);
+
+        if (ShouldSendAlert(playerKey, currentStatus))
+        {
+            SendProximityAlert(player, file, currentStatus);
+            lastProximityStatus[playerKey] = currentStatus;
+        }
+    }
+}
+
+private (string FileName, string AccountName, int LocationX, int LocationY)? ParseTreasureData(string line)
+{
+    var data = line.Split(',');
+    if (data.Length < 4) return null;
+
+    return (data[0], data[1], int.Parse(data[2]), int.Parse(data[3]));
+}
+
+private HashSet<string> ParseIgnoredPlayers(string[] lines)
+{
+    var ignoredPlayers = new HashSet<string>();
+    for (int i = 1; i < lines.Length; i++)
+    {
+        ignoredPlayers.Add(lines[i].Trim());
+    }
+    return ignoredPlayers;
+}
+
+private bool ShouldSendAlert(string playerKey, string currentStatus)
+{
+    return !lastProximityStatus.ContainsKey(playerKey) || lastProximityStatus[playerKey] != currentStatus;
+}
