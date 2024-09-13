@@ -28,6 +28,7 @@
         static int toleranciaPerigo;
         static bool eventoDisponivel = true;
         static Dictionary<string, string> lastProximityStatus = new Dictionary<string, string>();
+        public static List<string> playersLoading = new List<string>();
         private bool isRunning = false;
         private bool isConnected = false;
         static string baseDir;
@@ -471,71 +472,81 @@
         // Eventos de clique dos botões
         private async void BtnConnect_Click(object sender, EventArgs e)
         {
-            string server = txtServer.Text;
-            string port = txtPort.Text;
-            string password = txtPassword.Text;
-            authPassword = password;
-            apiUrl = $"http://{server}:{port}/v1/api/players";
-
-
-            baseDir = AppDomain.CurrentDomain.BaseDirectory;
-            logsDir = Path.Combine(baseDir, @"Dados\logs");
-            playersCsvFile = Path.Combine(baseDir, @"Dados\players_data.csv");
-            responseFile = Path.Combine(baseDir, @"Dados\response.json");
-            curlStatusFile = Path.Combine(baseDir, "Dados", "curl_status.txt");
-            curlOutputFile = Path.Combine(baseDir, "Dados", "curl_output.txt");
-
-            if (!isConnected)
+            if (!isConnected) // Se não está conectado, tenta conectar
             {
+                string server = txtServer.Text;
+                string port = txtPort.Text;
+                string password = txtPassword.Text;
+                authPassword = password;
+                apiUrl = $"http://{server}:{port}/v1/api/players";
+
+                baseDir = AppDomain.CurrentDomain.BaseDirectory;
+                logsDir = Path.Combine(baseDir, @"Dados\logs");
+                playersCsvFile = Path.Combine(baseDir, @"Dados\players_data.csv");
+                responseFile = Path.Combine(baseDir, @"Dados\response.json");
+                CleanTempFiles();
+                curlStatusFile = Path.Combine(baseDir, "Dados", "curl_status.txt");
+                curlOutputFile = Path.Combine(baseDir, "Dados", "curl_output.txt");
+
+                // Atualiza a UI para indicar que está tentando conectar
                 LogsTxt($"Conectando ao servidor {server} na porta {port}");
+
                 if (await MakeApiRequest(apiUrl, authUsername, authPassword, responseFile, curlStatusFile, curlOutputFile))
                 {
-
+                    // Conexão bem-sucedida, atualiza o estado e a UI
+                    isConnected = true;
                     LogsTxt("Conectado!");
-                    btnConnect.Text = "Desconectar";
-                    btnNotifyEvent.Enabled = true;
+                    Invoke(new Action(() =>
+                    {
+                        btnConnect.Text = "Desconectar";
+                        btnNotifyEvent.Enabled = true;
+                    }));
+
+                    // Inicia o loop de atualização enquanto está conectado
+                    await Task.Run(async () =>
+                    {
+                        while (isConnected)
+                        {
+                            if (!await MakeApiRequest(apiUrl, authUsername, authPassword, responseFile, curlStatusFile, curlOutputFile))
+                            {
+                                LogsTxt("Erro ao atualizar dados.");
+                            }
+
+                            if (!ProcessJsonAndUpdateCsv(playersCsvFile, responseFile))
+                            {
+                                LogsTxt("Erro ao processar dados.");
+                            }
+
+                            await Task.Delay(1000); // Intervalo de 1 segundo entre as atualizações
+                        }
+                    });
                 }
                 else
                 {
-                    LogsTxt("Não foi possivel Conectar");
-                    isRunning = false;
-                    btnConnect.Text = "Conectar";
-                    btnNotifyEvent.Enabled = false;
-                }
-
-                string directoryPath = Path.Combine(baseDir, "Dados", "Guildas");
-
-                // Executar o loop em uma Task para não bloquear a interface
-                await Task.Run(async () =>
-                {
-                    while (!isConnected)
+                    LogsTxt("Não foi possível conectar");
+                    Invoke(new Action(() =>
                     {
-                        isConnected = true;
-
-                        CleanTempFiles();
-
-                        if (ProcessJsonAndUpdateCsv(playersCsvFile, responseFile) == false)
-                        {
-                            Thread.Sleep(10000);
-                            LogsTxt("Player sem ID");
-
-                        }
-                        Task.Delay(1000).Wait(); // Intervalo de 1 segundo para evitar loop constante
-                    }
-                });
+                        btnConnect.Text = "Conectar";
+                        btnNotifyEvent.Enabled = false;
+                    }));
+                }
             }
-            else
+            else // Se já está conectado, desconecta
             {
+                // Atualiza o estado e a UI
                 isConnected = false;
-                btnConnect.Text = "Conectar";
-                btnNotifyEvent.Enabled = false;
                 LogsTxt("Desconectado!");
                 CleanTempFiles();
+                Invoke(new Action(() =>
+                {
+                    btnConnect.Text = "Conectar";
+                    btnNotifyEvent.Enabled = false;
+                    lstPlayers.Items.Clear();
+                }));
             }
-
-
-
         }
+
+
         private async void BtnNotifyEvent_Click(object sender, EventArgs e)
         {
             if (!isRunning)
@@ -568,6 +579,7 @@
         private void Form1_Load(object sender, EventArgs e)
         {
             InitializeDirectoriesAndFiles();
+            
         }
 
 
@@ -666,37 +678,43 @@
             }
         }
 
-
-        public static bool ProcessJsonAndUpdateCsv(string playersCsvFile, string responseFile)
+        public bool ProcessJsonAndUpdateCsv(string playersCsvFile, string responseFile)
         {
             List<Player> existingPlayers = ReadPlayersFromCsv(playersCsvFile);
             List<Player> newPlayers = ParsePlayersFromJson(responseFile);
 
             List<Player> playersEntered = new List<Player>();
             List<Player> playersExited = new List<Player>();
-            List<Player> playersLoading = new List<Player>();
 
             foreach (var newPlayer in newPlayers)
             {
                 if (newPlayer.PlayerId == "None")
                 {
-                    LogsTxt($"Account {newPlayer.AccountName} na tela de Loading");
-                    playersLoading.Add(newPlayer);
+                    // Verifica se o jogador já está na lista de loading
+                    if (!playersLoading.Contains(newPlayer.AccountName))
+                    {
+                        // Adiciona o jogador à lista de loading e exibe a mensagem uma vez
+                        playersLoading.Add(newPlayer.AccountName);
+                        LogsTxt($"Account {newPlayer.AccountName} na tela de Loading");
+                    }
                 }
                 else
                 {
+                    // Remove o jogador da lista de loading caso ele não esteja mais na tela de loading
+                    if (playersLoading.Contains(newPlayer.AccountName))
+                    {
+                        playersLoading.Remove(newPlayer.AccountName);
+                    }
 
+                    // Se o jogador não está no CSV de jogadores existentes, adiciona à lista de novos jogadores
                     if (!existingPlayers.Any(p => p.AccountName == newPlayer.AccountName))
                     {
                         playersEntered.Add(newPlayer);
-
                     }
                 }
-
-
-
             }
 
+            // Verifica os jogadores que saíram
             foreach (var existingPlayer in existingPlayers)
             {
                 if (!newPlayers.Any(p => p.AccountName == existingPlayer.AccountName))
@@ -704,36 +722,42 @@
                     playersExited.Add(existingPlayer);
                 }
             }
-            foreach (var PlayerLoad in playersLoading)
-            {
-                newPlayers.Remove(PlayerLoad);
-            }
 
+            // Atualiza o CSV com os novos jogadores (exclui os que estão na tela de loading)
+            newPlayers.RemoveAll(p => p.PlayerId == "None");
+
+            // Atualiza o CSV com os novos jogadores
             UpdateCsvWithPlayers(playersCsvFile, newPlayers);
 
+            // Log de jogadores que entraram
             if (playersEntered.Count >= 1)
             {
                 LogsTxt("Jogadores que Entraram:");
+                foreach (var player in playersEntered)
+                {
+                    LogsTxt($"{player.Name}");
+                    //SendDiscordNotification($"{player.Name} ({player.AccountName}) entrou no servidor", "1752220");
+                }
             }
 
-            foreach (var player in playersEntered)
-            {
-                LogsTxt($"{player.Name}");
-                //SendDiscordNotification($"{player.Name} ({player.AccountName}) entrou no servidor", "1752220");
-            }
+            // Log de jogadores que saíram
             if (playersExited.Count >= 1)
             {
                 LogsTxt("Jogadores que Saíram:");
+                foreach (var player in playersExited)
+                {
+                    LogsTxt($"{player.Name}");
+                    Invoke(new Action(() =>
+                    {
+                        lstPlayers.Items.Remove(player.Name);
+                    }));
+                    //SendDiscordNotification($"{player.Name} ({player.AccountName}) saiu do servidor", "10181046");
+                }
             }
 
-            foreach (var player in playersExited)
-            {
-                LogsTxt($"{player.Name}");
-                lstPlayers.Items.Remove(player.Name);
-                //SendDiscordNotification($"{player.Name} ({player.AccountName}) saiu do servidor", "10181046");
-            }
             return true;
         }
+
 
         static void UpdateCsvWithPlayers(string filePath, List<Player> players)
         {
@@ -929,7 +953,7 @@
                 if (File.Exists(filePath))
                     File.Delete(filePath);
             }
-            
+
         }
 
         public static async Task<bool> MakeApiRequest(string apiUrl, string username, string password, string responseFile, string curlStatusFile, string curlOutputFile)
