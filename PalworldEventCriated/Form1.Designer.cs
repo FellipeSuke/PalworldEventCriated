@@ -39,10 +39,7 @@
         private TabControl tabControl1;
         private TabPage QuenteFrio;
         private TabPage ControleDePonto;
-        private Label label2;
-        private TextBox textBox2;
         private Label label1;
-        private TextBox textBox1;
         private Button button1;
         private Label label4;
         private Label label3;
@@ -61,6 +58,10 @@
         private TextBox textBox7;
         private Button button2;
         private PictureBox pictureBox1;
+        private TextBox tbDiscordWebHook;
+        private CheckBox cbTesteWebHook;
+        private Label label2;
+        private TextBox tbDiscordWebHookTeste;
         static ListBox lstPlayers;
         static TextBox txtLogs;
     }

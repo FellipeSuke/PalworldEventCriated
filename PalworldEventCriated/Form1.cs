@@ -66,6 +66,7 @@
             lblLogs = new Label();
             tabControl1 = new TabControl();
             QuenteFrio = new TabPage();
+            cbTesteWebHook = new CheckBox();
             label11 = new Label();
             textBox7 = new TextBox();
             label10 = new Label();
@@ -81,9 +82,9 @@
             label4 = new Label();
             label3 = new Label();
             label2 = new Label();
-            textBox2 = new TextBox();
+            tbDiscordWebHookTeste = new TextBox();
             label1 = new Label();
-            textBox1 = new TextBox();
+            tbDiscordWebHook = new TextBox();
             ControleDePonto = new TabPage();
             label5 = new Label();
             button1 = new Button();
@@ -159,7 +160,7 @@
             // btnNotifyEvent
             // 
             btnNotifyEvent.Enabled = false;
-            btnNotifyEvent.Location = new Point(432, 310);
+            btnNotifyEvent.Location = new Point(432, 316);
             btnNotifyEvent.Name = "btnNotifyEvent";
             btnNotifyEvent.Size = new Size(100, 30);
             btnNotifyEvent.TabIndex = 7;
@@ -213,6 +214,7 @@
             // 
             // QuenteFrio
             // 
+            QuenteFrio.Controls.Add(cbTesteWebHook);
             QuenteFrio.Controls.Add(label11);
             QuenteFrio.Controls.Add(textBox7);
             QuenteFrio.Controls.Add(label10);
@@ -228,9 +230,9 @@
             QuenteFrio.Controls.Add(label4);
             QuenteFrio.Controls.Add(label3);
             QuenteFrio.Controls.Add(label2);
-            QuenteFrio.Controls.Add(textBox2);
+            QuenteFrio.Controls.Add(tbDiscordWebHookTeste);
             QuenteFrio.Controls.Add(label1);
-            QuenteFrio.Controls.Add(textBox1);
+            QuenteFrio.Controls.Add(tbDiscordWebHook);
             QuenteFrio.Controls.Add(btnNotifyEvent);
             QuenteFrio.Location = new Point(4, 24);
             QuenteFrio.Name = "QuenteFrio";
@@ -239,6 +241,16 @@
             QuenteFrio.TabIndex = 2;
             QuenteFrio.Text = "Quente e Frio";
             QuenteFrio.UseVisualStyleBackColor = true;
+            // 
+            // cbTesteWebHook
+            // 
+            cbTesteWebHook.AutoSize = true;
+            cbTesteWebHook.Location = new Point(18, 88);
+            cbTesteWebHook.Name = "cbTesteWebHook";
+            cbTesteWebHook.Size = new Size(106, 19);
+            cbTesteWebHook.TabIndex = 27;
+            cbTesteWebHook.Text = "Iniciar em teste";
+            cbTesteWebHook.UseVisualStyleBackColor = true;
             // 
             // label11
             // 
@@ -369,12 +381,13 @@
             label2.TabIndex = 10;
             label2.Text = "WebHook Teste";
             // 
-            // textBox2
+            // tbDiscordWebHookTeste
             // 
-            textBox2.Location = new Point(133, 53);
-            textBox2.Name = "textBox2";
-            textBox2.Size = new Size(399, 23);
-            textBox2.TabIndex = 11;
+            tbDiscordWebHookTeste.Location = new Point(133, 53);
+            tbDiscordWebHookTeste.Name = "tbDiscordWebHookTeste";
+            tbDiscordWebHookTeste.Size = new Size(399, 23);
+            tbDiscordWebHookTeste.TabIndex = 11;
+            tbDiscordWebHookTeste.Text = "https://discordapp.com/api/webhooks/1262885751532552234/HBgF6Fkm76bsNXxsLr_SDfAhjgD_2hTEP7PUkF5eT7RX6nhEj57lGq3BllBZtvNvWnGo";
             // 
             // label1
             // 
@@ -385,12 +398,13 @@
             label1.TabIndex = 8;
             label1.Text = "WebHook Discord";
             // 
-            // textBox1
+            // tbDiscordWebHook
             // 
-            textBox1.Location = new Point(133, 24);
-            textBox1.Name = "textBox1";
-            textBox1.Size = new Size(399, 23);
-            textBox1.TabIndex = 9;
+            tbDiscordWebHook.Location = new Point(133, 24);
+            tbDiscordWebHook.Name = "tbDiscordWebHook";
+            tbDiscordWebHook.Size = new Size(399, 23);
+            tbDiscordWebHook.TabIndex = 9;
+            tbDiscordWebHook.Text = "https://discordapp.com/api/webhooks/1264728721835954196/ZZRHjttkYbN-WL1EkgWntgdZtLuuijeFFafSY0xXytbhukvgJpRmuGpz2qKPEY5QgmwS";
             // 
             // ControleDePonto
             // 
@@ -510,6 +524,7 @@
                             if (!await MakeApiRequest(apiUrl, authUsername, authPassword, responseFile, curlStatusFile, curlOutputFile))
                             {
                                 LogsTxt("Erro ao atualizar dados.");
+                                isConnected = false;
                             }
 
                             if (!ProcessJsonAndUpdateCsv(playersCsvFile, responseFile))
@@ -553,6 +568,13 @@
             {
                 isRunning = true;
                 btnNotifyEvent.Text = "Parar Evento";
+                btnConnect.Enabled = false;
+                discordWebhookUrl = tbDiscordWebHook.Text;
+                if (cbTesteWebHook.Checked)
+                {
+                    discordWebhookUrl = tbDiscordWebHookTeste.Text;
+                }
+                
                 LogsTxt("Evento Iniciado!");
 
                 string directoryPath = Path.Combine(baseDir, "Dados", "Guildas");
@@ -572,7 +594,9 @@
                 CleanTempFiles();
                 isRunning = false;
                 btnNotifyEvent.Text = "Iniciar Evento";
+                btnConnect.Enabled = true;
                 LogsTxt("Evento Parado!");
+                
             }
         }
 
@@ -732,10 +756,10 @@
             // Log de jogadores que entraram
             if (playersEntered.Count >= 1)
             {
-                LogsTxt("Jogadores que Entraram:");
+                
                 foreach (var player in playersEntered)
                 {
-                    LogsTxt($"{player.Name}");
+                    LogsTxt($"{player.Name} entrou no servidor");
                     //SendDiscordNotification($"{player.Name} ({player.AccountName}) entrou no servidor", "1752220");
                 }
             }
@@ -743,10 +767,10 @@
             // Log de jogadores que saíram
             if (playersExited.Count >= 1)
             {
-                LogsTxt("Jogadores que Saíram:");
+                
                 foreach (var player in playersExited)
                 {
-                    LogsTxt($"{player.Name}");
+                    LogsTxt($"{player.Name} saiu do servidor");
                     Invoke(new Action(() =>
                     {
                         lstPlayers.Items.Remove(player.Name);
