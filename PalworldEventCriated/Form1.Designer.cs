@@ -18,6 +18,7 @@
                 components.Dispose();
             }
             base.Dispose(disposing);
+            
         }
 
         #region Windows Form Designer generated code
@@ -40,28 +41,38 @@
         private TabPage QuenteFrio;
         private TabPage ControleDePonto;
         private Label label1;
-        private Button button1;
+        private Button btnColetaLocal;
         private Label label4;
         private Label label3;
         private Label label5;
         private Label label6;
-        private ListBox listBox1;
+        private ListBox lbPlayersIgnorados;
         private Label label10;
-        private TextBox textBox6;
+        private TextBox txtToleranciaPerigo;
         private Label label9;
-        private TextBox textBox5;
+        private TextBox txtToleranciaProximaMP;
         private Label label8;
-        private TextBox textBox4;
+        private TextBox txtToleranciaProximaP;
         private Label label7;
-        private TextBox textBox3;
+        private TextBox txttoleranciaProximaM;
         private Label label11;
-        private TextBox textBox7;
-        private Button button2;
+        private TextBox txtToleranciaProximaL;
+        private Button btnIgnoraPlayer;
         private PictureBox pictureBox1;
         private TextBox tbDiscordWebHook;
         private CheckBox cbTesteWebHook;
         private Label label2;
         private TextBox tbDiscordWebHookTeste;
+        private TextBox tbFileLocationY;
+        private TextBox tbFileLocationX;
+        private TextBox tbTesouroName;
+        private Label label12;
+        private Button btnLimparIgnorados;
+        private Label label13;
+        private Label label14;
+        private TextBox tbMensagemWebHook;
+        private Button btnEnviarMensagem;
+        static CheckBox cbBroadcastApi;
         static ListBox lstPlayers;
         static TextBox txtLogs;
     }
