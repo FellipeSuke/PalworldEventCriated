@@ -17,7 +17,7 @@
         private Label lblPassword;
         private TextBox txtPassword;
         private Button btnConnect;
-        private Button btnNotifyEvent;
+        static Button btnNotifyEvent;
         private Label lblPlayers;
         private Label lblLogs;
         private Form2 _form2; // Referência ao Form2
@@ -703,6 +703,7 @@
                 btnNotifyEvent.Text = "Parar Evento";
                 btnConnect.Enabled = false;
                 discordWebhookUrl = tbDiscordWebHook.Text;
+                btnNotifyEvent.BackColor = Color.White;
                 if (cbTesteWebHook.Checked)
                 {
                     discordWebhookUrl = tbDiscordWebHookTeste.Text;
@@ -719,6 +720,7 @@
                     {
                         CheckCoordinatesInTextFiles(playersCsvFile);
                         Task.Delay(200).Wait(); // Intervalo de 1 segundo para evitar loop constante
+
                     }
                     lastProximityStatus.Clear();
                     isRunning = false;
@@ -761,12 +763,22 @@
                 isRunning = false;
                 btnNotifyEvent.Text = "Iniciar Evento";
                 btnConnect.Enabled = true;
+                btnNotifyEvent.BackColor = Color.White;
                 LogsTxt("Evento Parado!");
             }
         }
 
         public void CheckCoordinatesInTextFiles(string playersCsvFile)
         {
+            if (btnNotifyEvent.BackColor == Color.White)
+            {
+                btnNotifyEvent.BackColor = Color.YellowGreen;
+            }
+            else
+            {
+                btnNotifyEvent.BackColor = Color.White;
+            }
+
             try
             {
                 var players = ReadPlayersFromCsv(playersCsvFile);
@@ -794,6 +806,7 @@
                         SendProximityAlert(player, tbTesouroName.Text, currentStatus);
                         lastProximityStatus[playerKey] = currentStatus;
                     }
+
                 }
 
             }
@@ -801,6 +814,7 @@
             {
 
                 LogsTxt($"Erro ao verificar coordenadas: {ex.Message}");
+                btnNotifyEvent.BackColor= Color.IndianRed;
             }
         }
 
@@ -1035,6 +1049,7 @@
                     });
                 }
             }
+
             return players;
         }
 
